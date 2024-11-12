@@ -1,0 +1,395 @@
+---
+title: "Stats_506_PS5"
+author: "Annie Yannan Niu"
+format: 
+  html:
+    embed-resources: true
+execute:
+  error: true
+editor: visual
+---
+
+# Problem set 5
+
+## Github link
+
+## Problem 1. OOP
+
+### a. Define the `rational` class
+
+Function for GCD
+
+```{r}
+library(Rcpp)
+
+cppFunction('
+int cpp_gcd(int a, int b) {
+    while (b != 0) {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+    return abs(a);
+}
+')
+cpp_gcd(20, 25)
+```
+
+Function for LCM
+
+```{r}
+cppFunction('
+int cpp_lcm(int a, int b) {
+    int x = a;
+    int y = b;
+    while (y != 0) {
+            int temp = y;
+            y = x % y;
+            x = temp;
+        }
+    return abs(a * b) / abs(x);
+}
+')
+
+# Test the functions
+cpp_lcm(20, 25)   # Should return 100
+```
+
+```{r}
+# Define the rational S4 class
+setClass("rational",
+         slots = list(numerator = "numeric",
+                      denominator = "numeric"))
+
+# Constructor 
+rational <- function(numerator, denominator = 1) {
+    # if (denominator == 0) {
+    #     stop("Denominator cannot be zero.")
+    # }
+    obj <- new("rational", numerator = numerator, denominator = denominator)
+    validObject(obj)  # Check validity
+    return(obj)
+}
+
+# Validator 
+setValidity("rational", function(object) {
+    if (object@denominator == 0) {
+        return("Denominator cannot be zero.")
+    }
+    TRUE
+})
+
+# Show method 
+setMethod("show", "rational", function(object) {
+    cat(object@numerator, "/", object@denominator, "\n")
+})
+
+# Simplify method 
+setGeneric("simplify", function(object) standardGeneric("simplify"))
+setMethod("simplify", "rational", function(object) {
+    a <- abs(object@numerator)
+    b <- abs(object@denominator)
+    gcd <- cpp_gcd(a, b)
+    
+    # Simplify by devide gcd
+    new("rational", numerator = object@numerator / gcd, denominator = object@denominator / gcd)
+})
+
+# Quotient method 
+setGeneric("quotient", function(object, digit = 2) standardGeneric("quotient"))
+setMethod("quotient", "rational", function(object, digit = 2) {
+    if (digit %% 1 != 0) {
+        stop("Digits must be a non-negative number.")
+    }
+    result <- object@numerator / object@denominator
+    format_string <- paste0("%.", digit, "f")
+    round_r <- sprintf(format_string,round(result, digit))
+    print(round_r)
+    return(result)
+})
+
+# Arithmetic methods 
+setMethod("+", signature(e1 = "rational", e2 = "rational"), function(e1, e2) {
+    lcm_denom <- cpp_lcm(e1@denominator, e2@denominator)
+    new_numerator <- e1@numerator * (lcm_denom / e1@denominator) + e2@numerator * (lcm_denom / e2@denominator)
+    simplify(new("rational", numerator = new_numerator, denominator = lcm_denom))
+})
+
+setMethod("-", signature(e1 = "rational", e2 = "rational"), function(e1, e2) {
+    lcm_denom <- cpp_lcm(e1@denominator, e2@denominator)
+    new_numerator <- e1@numerator * (lcm_denom / e1@denominator) - e2@numerator * (lcm_denom / e2@denominator)
+    simplify(new("rational", numerator = new_numerator, denominator = lcm_denom))
+})
+
+setMethod("*", signature(e1 = "rational", e2 = "rational"), function(e1, e2) {
+    simplify(new("rational", numerator = e1@numerator * e2@numerator, denominator = e1@denominator * e2@denominator))
+})
+
+setMethod("/", signature(e1 = "rational", e2 = "rational"), function(e1, e2) {
+    if (e2@numerator == 0) stop("Cannot divide by zero.")
+    simplify(new("rational", numerator = e1@numerator * e2@denominator, denominator = e1@denominator * e2@numerator))
+})
+
+```
+
+### b. Use your `rational` class to create three objects:
+
+```{r}
+# Create instances of Rational numbers
+r1 <- rational(24, 6)
+r2 <- rational(7, 230)
+r3 <- rational(0, 4)
+print(c(r1, r2, r3))
+```
+
+```{r}
+r1
+r3
+r1 + r2
+r1 - r2
+r1 * r2
+r1 / r2
+r1 + r3
+r1 * r3
+r2 / r3
+quotient(r1)
+quotient(r2)
+quotient(r2, digit = 3)
+quotient(r2, digit = 3.14)
+quotient(r2, digit = "avocado")
+q2 <- quotient(r2, digit = 3)
+q2
+quotient(r3)
+simplify(r1)
+simplify(r2)
+simplify(r3)
+```
+
+### c. Show that your validator does not allow the creation of rational’s with 0 denominator, and check other malformed input to your constructor.
+
+```{r}
+r4 <- rational(24, 0)
+```
+
+## **Problem 2 - plotly**
+
+### a. Regenerate your plot which addresses the second question from last time:
+
+Does the distribution of genre of sales across years appear to change?
+
+```{r}
+# Import data
+art_sales <- read.csv("/Users/nynn/Library/CloudStorage/OneDrive-Umich/Umich course/2024_Fall/Stats 506/Stats_506_PS/Stats_506_PS4/df_for_ml_improved_new_market.csv")
+
+# Load necessary libraries
+library(tidyverse)
+library(plotly)
+
+# Summarize data by year and genre, including NAs/no info as others
+genre_summary <- art_sales %>%
+  group_by(year) %>%
+  summarise(
+    Photography = sum(Genre___Photography, na.rm = TRUE),
+    Print = sum(Genre___Print, na.rm = TRUE),
+    Sculpture = sum(Genre___Sculpture, na.rm = TRUE),
+    Painting = sum(Genre___Painting, na.rm = TRUE),
+    Other = sum(Genre___Photography == 0 & Genre___Print == 0 &
+                  Genre___Sculpture == 0 & Genre___Painting == 0) 
+  )
+
+# Reshape data for Plotly
+genre_long <- genre_summary %>%
+  pivot_longer(cols = c(Photography, Print, Painting, Sculpture, Other), 
+               names_to = "Genre", 
+               values_to = "Count") %>%
+  group_by(year) %>%
+  mutate(Percentage = round(Count / sum(Count) * 100, 1))
+
+# Absolute number plot
+absolute_plot <- plot_ly(genre_long, x = ~as.factor(year), y = ~Count, color = ~Genre, type = "bar") %>%
+  layout(
+    title = "Distribution of Genre Over Years - Absolute Number",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Number of Sales"),
+    barmode = "stack",
+    legend = list(title = list(text = "Genre"))
+  )
+
+absolute_plot
+
+# Percentage plot (stacked to 100%)
+percentage_plot <- plot_ly(genre_long, x = ~as.factor(year), y = ~Percentage, color = ~Genre, type = "bar", text = ~Genre) %>%
+  layout(
+    title = "Distribution of Genre Over Years - Percentage",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Percentage of Sales", ticksuffix = "%"),
+    barmode = "stack",
+    legend = list(title = list(text = "Genre"))
+  )
+
+percentage_plot
+```
+
+### b. Generate an interactive plot with **plotly** that can address both of these questions from last time:
+
+Is there a change in the sales price in USD over time?
+
+How does the genre affect the change in sales price over time?
+
+```{r}
+# Prepare data with median and IQR
+df_yearly_price <- art_sales %>%
+  group_by(year) %>%
+  summarise(
+    median_price_usd = median(price_usd, na.rm = TRUE),
+    lower_q = quantile(price_usd, 0.25, na.rm = TRUE),  # 25th percentile
+    upper_q = quantile(price_usd, 0.75, na.rm = TRUE)   # 75th percentile
+  )
+
+# Create the interactive Plotly plot
+plot <- plot_ly(df_yearly_price, x = ~year) %>%
+  # Add ribbon for IQR
+  add_ribbons(ymin = ~lower_q, ymax = ~upper_q, name = "IQR (25th - 75th Percentile)", 
+              fillcolor = 'rgba(173, 216, 230, 0.4)', line = list(color = 'transparent')) %>%
+  # Add median line
+  add_lines(y = ~median_price_usd, name = "Median Price", line = list(color = 'blue', width = 2)) %>%
+  # Add median points
+  add_markers(y = ~median_price_usd, name = "Median Price", marker = list(color = 'blue', size = 6)) %>%
+  # Layout for titles and styling
+  layout(
+    title = "Sales Price Distribution Over Time with IQR",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Sales Price (USD)"),
+    legend = list(title = list(text = "Legend")),
+    hovermode = "x unified"  # Display hover info for all elements together
+  )
+
+plot
+```
+
+```{r}
+# Create a dataset for genre
+art_sales_genre <- art_sales %>%
+  mutate(Genre = case_when(
+    Genre___Photography == 1 ~ "Photography",
+    Genre___Print == 1 ~ "Print",
+    Genre___Sculpture == 1 ~ "Sculpture",
+    Genre___Painting == 1 ~ "Painting",
+    TRUE ~ "Other"
+  )) %>%
+  select(year, price_usd, Genre)
+
+art_sales_genre$Genre <- factor(art_sales_genre$Genre, levels = c("Painting", "Photography", "Print", "Sculpture", "Other"))
+
+# Calculate IQR (Interquartile Range) for each genre and year
+genre_price_summary <- art_sales_genre %>%
+  group_by(year, Genre) %>%
+  summarise(
+    median_price = median(price_usd, na.rm = TRUE),
+    lower_q = quantile(price_usd, 0.25, na.rm = TRUE),  # 25th percentile
+    upper_q = quantile(price_usd, 0.75, na.rm = TRUE)   # 75th percentile
+  )
+
+# Generate a list of plotly plots for each genre with IQR ribbons and median lines
+plots <- genre_price_summary %>%
+  group_by(Genre) %>%
+  do(plot = plot_ly(data = ., x = ~year) %>%
+       add_ribbons(
+         ymin = ~lower_q,
+         ymax = ~upper_q,
+         fillcolor = ~Genre,
+         name = "IQR",
+         showlegend = FALSE,
+         opacity = 0.5
+       ) %>%
+       add_lines(
+         y = ~median_price,
+         color = ~Genre,
+         name = ~Genre,
+         line = list(width = 3),
+         hoverinfo = "text",
+         text = ~paste("Year:", year,
+                       "<br>Median Price:", round(median_price, 2),
+                       "<br>Genre:", Genre)
+       ) %>%
+       layout(
+         title = list(text = ~unique(Genre), xref = "paper"),
+         xaxis = list(title = "Year"),
+         yaxis = list(title = "Median Sales Price (USD)")
+       ))
+
+# Use subplot to create a faceted plot with each genre in a separate facet, similar to ggplot's facet_wrap
+final_plot <- subplot(plots$plot, nrows = 2, shareX = TRUE, titleX = TRUE)
+
+# Display the final interactive plot with a shared legend at the top
+final_plot %>%
+  layout(
+    title = "Sales Price Over Time by Genre with IQR",
+    legend = list(orientation = "h", x = 0.5, xanchor = "center"),
+    margin = list(t = 50)
+  )
+```
+
+## Problem 3. data.table
+
+### a. 
+
+```{r}
+# Load necessary libraries
+library(data.table)
+library(nycflights13)
+
+# Convert to data.table format
+flights_dt <- as.data.table(flights)
+airports_dt <- as.data.table(airports)
+
+# Departure delays
+departure_delays <- flights_dt[
+  , .(mean_delay = mean(dep_delay, na.rm = TRUE),
+      med_delay = median(dep_delay, na.rm = TRUE),
+      numflights = .N), by = origin
+][numflights >= 10][order(-mean_delay)]
+
+# Join with airports data to get airport names
+departure_delays <- departure_delays[
+  airports_dt, on = .(origin = faa), nomatch = 0
+][, .(name, mean_delay, med_delay)][order(-mean_delay)]
+
+# Display the result for departure delays
+print(departure_delays)
+```
+
+### b. 
+
+```{r}
+# Arrival delays
+arrival_delays <- flights_dt[
+  , .(mean_delay = mean(arr_delay, na.rm = TRUE),
+      med_delay = median(arr_delay, na.rm = TRUE),
+      numflights = .N), by = dest
+][numflights >= 10][order(-mean_delay)]
+
+# Join with airports data to get airport names
+arrival_delays <- arrival_delays[
+  airports_dt, on = .(dest = faa), nomatch = 0
+][, name := coalesce(name, dest)][, .(name, mean_delay, med_delay)][order(-mean_delay)]
+
+# Display all rows for arrival delays
+print(arrival_delays)
+```
+
+### c. 
+
+```{r}
+planes_dt <- as.data.table(planes)
+fastest_aircraft <- flights_dt[
+  planes_dt, 
+  on = "tailnum", 
+  .(model, mph = distance / (air_time / 60)),  # Calculate speed in join
+  nomatch = NULL
+][
+  , .(avgmph = mean(mph, na.rm = TRUE), nflights = .N), by = model  # Aggregate by model
+][order(-avgmph)][1]  # Sort by avgmph and take top row
+
+print(fastest_aircraft)
+```
