@@ -13,6 +13,8 @@ editor: visual
 
 ## Github link
 
+<https://github.com/nynn7747/Stats_506_PS5>
+
 ## Problem 1. OOP
 
 ### a. Define the `rational` class
@@ -332,7 +334,7 @@ final_plot %>%
 
 ## Problem 3. data.table
 
-### a. 
+### a. Generate a table (which can just be a nicely printed tibble) reporting the mean and median departure delay per airport.
 
 ```{r}
 # Load necessary libraries
@@ -359,7 +361,7 @@ departure_delays <- departure_delays[
 print(departure_delays)
 ```
 
-### b. 
+### b. Generate a second table (which again can be a nicely printed tibble) reporting the mean and median arrival delay per airport.
 
 ```{r}
 # Arrival delays
@@ -370,15 +372,14 @@ arrival_delays <- flights_dt[
 ][numflights >= 10][order(-mean_delay)]
 
 # Join with airports data to get airport names
-arrival_delays <- arrival_delays[
-  airports_dt, on = .(dest = faa), nomatch = 0
-][, name := coalesce(name, dest)][, .(name, mean_delay, med_delay)][order(-mean_delay)]
+arrival_delays <- airports_dt[
+  arrival_delays, on = .(faa = dest)][, name := coalesce(name, faa)][, .(name, mean_delay, med_delay)][order(-mean_delay)]
 
 # Display all rows for arrival delays
 print(arrival_delays)
 ```
 
-### c. 
+### c. How many flights did the aircraft model with the fastest average speed take? Produce a tibble with 1 row, and entries for the model, average speed (in MPH) and number of flights.
 
 ```{r}
 planes_dt <- as.data.table(planes)
